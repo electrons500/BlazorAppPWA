@@ -1,0 +1,62 @@
+﻿@page "/Game/GameDetails/{id:int}"
+@using BlazorAppPWA.Shared
+@inject HttpClient _client;
+
+
+<PageTitle>Game Details</PageTitle>
+<h3>Game Details</h3>
+<br />
+<div class="container">
+    <dl class="row">
+        <dt class="col-md-2">
+           Game S/No:
+        </dt>
+        <dd class="col-md-10">
+            @game?.Id
+        </dd>
+        <dt class="col-md-2">
+           Game name:
+        </dt>
+        <dd class="col-md-10">
+            @game?.GameName
+        </dd>
+
+        <dt class="col-md-2">
+           Game Price:
+        </dt>
+        <dd class="col-md-10">
+            @game?.Price
+        </dd>
+        <dt class="col-md-2">
+           Date of creation:
+        </dt>
+        <dd class="col-md-10">
+            @game?.CreatedAt
+        </dd>
+
+
+    </dl>
+    <br />
+    <div class="row">
+        <div class="col-auto">
+            <a class="btn btn-primary" href="/Game">Back to Games list</a>  
+        </div>
+         <div class="col-auto">
+            <a class="btn btn-success" href="/Game/EditGame/@id">Edit Game</a>
+        </div>
+
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public int id { get; set; }
+
+    public Game? game { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        game = await _client.GetFromJsonAsync<Game>($"api/Games/GetGame/{id}");
+    }
+}

@@ -1,0 +1,61 @@
+﻿@page "/Game/EditGame/{id:int}"
+@using BlazorAppPWA.Client.Enums
+@using BlazorAppPWA.Client.SweetAlert
+@using BlazorAppPWA.Shared
+@inject HttpClient _client
+@inject IJSRuntime js;
+@inject NavigationManager navigationManager
+
+<PageTitle>Edit Game</PageTitle>
+
+<h3>Edit Game</h3>
+<br />
+<div class="row">
+    <div class="col-sm-6">
+        <EditForm Model="@game" OnValidSubmit="onSubmithandler">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <InputNumber hidden class="form-control" @bind-Value="game.Id"/>
+            <div class="mb-3">
+                <label class="form-label">Game name</label>
+                <InputText class="form-control" @bind-Value="game.GameName" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Price</label>
+                <InputNumber class="form-control" @bind-Value="game.Price" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Date Created</label>
+                <InputDate class="form-control" @bind-Value="game.CreatedAt" />
+            </div>
+            <div class="mb-3">
+                <button class="btn btn-primary">Submit</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+
+    private Game? game = new();
+    private SweetAlertBase _sweetAlertBase;
+
+    [Parameter]
+    public int id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _sweetAlertBase = new SweetAlertBase(js);
+        game = await _client.GetFromJsonAsync<Game>($"api/Games/GetGame/{id}");
+    }
+
+    private async void onSubmithandler()
+    {
+        var response = await _client.PutAsJsonAsync<Game>($"api/Games/UpdateGame/{id}", game);
+        if (response.IsSuccessStatusCode)
+        {
+            await _sweetAlertBase.DefaultAlertAsync("Congratulations", "You have successfully updated the game.", SweetAlertEnum.SweetAlertIconType.success.ToString());
+            navigationManager.NavigateTo("/Game");
+        }
+    }
+}

@@ -1,0 +1,87 @@
+﻿@page "/Game/DeleteGame/{id:int}"
+@using BlazorAppPWA.Client.Enums
+@using BlazorAppPWA.Client.SweetAlert
+@using BlazorAppPWA.Shared;
+@inject HttpClient _client;
+@inject IJSRuntime js;
+@inject NavigationManager navigationManager;
+<PageTitle>Delete Game</PageTitle>
+
+<h3>Are you sure you want to delete this game?</h3>
+<br />
+<div class="container">
+    <dl class="row">
+        <dt class="col-md-2">
+            Game S/No:
+        </dt>
+        <dd class="col-md-10">
+            @game?.Id
+        </dd>
+        <dt class="col-md-2">
+            Game name:
+        </dt>
+        <dd class="col-md-10">
+            @game?.GameName
+        </dd>
+
+        <dt class="col-md-2">
+            Game Price:
+        </dt>
+        <dd class="col-md-10">
+            @game?.Price
+        </dd>
+        <dt class="col-md-2">
+            Date of creation:
+        </dt>
+        <dd class="col-md-10">
+            @game?.CreatedAt
+        </dd>
+
+
+    </dl>
+    <br />
+    <div class="row">
+        <div class="col-auto">
+            <button class="btn btn-danger" @onclick="()=>onDeleteGamehandler()">Yes,Delete</button>
+        </div>
+        <div class="col-auto">
+            <a class="btn btn-success" href="/Game">Cancel</a>
+        </div>
+
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public int id { get; set; }
+
+    private Game? game { get; set; }
+
+    private SweetAlertBase _sweetAlertBase;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _sweetAlertBase = new SweetAlertBase(js);
+        game = await _client.GetFromJsonAsync<Game>($"api/Games/GetGame/{id}");
+    }
+
+    private async void onDeleteGamehandler()
+    {
+        bool result = await _sweetAlertBase.ConfirmAlertAsync("Are you sure", "Deletion cannot be undone", SweetAlertEnum.SweetAlertIconType.warning.ToString());
+        if (result)
+        {
+            var responseMessage = await _client.DeleteAsync($"api/Games/DeleteGame/{id}");
+            if (responseMessage.IsSuccessStatusCode)
+            {
+                await _sweetAlertBase.DefaultAlertAsync("Congratulations", "You have successfully delete the game.", SweetAlertEnum.SweetAlertIconType.success.ToString());
+                navigationManager.NavigateTo("/Game");
+            }
+           
+        }
+
+
+        
+    }
+
+}

@@ -1,0 +1,104 @@
+﻿@page "/Game"
+@using BlazorAppPWA.Shared
+@using Newtonsoft.Json
+@inject HttpClient _client
+@inject NavigationManager navigationManager
+@inject IJSRuntime js;
+@using BlazorAppPWA.Client.SweetAlert;
+@using BlazorAppPWA.Client.Enums;
+
+
+<PageTitle>Games</PageTitle>
+
+<h1>List of Games</h1>
+<br />
+@if (games == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    
+    <div class="card shadow">
+        <div class="card-header">
+            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="@onAddGame"><span class="oi oi-plus"></span> Add new game</button>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered table-striped table-hover table-sm">
+                <thead class="table-primary">
+                    <tr>
+                        <th>#</th>
+                        <th>Game </th>
+                        <th>Price</th>
+                        <th>Creation date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var game in games)
+                    {
+                        <tr>
+                            <td>@game.Id</td>
+                            <td>@game.GameName</td>
+                            <td>@game.Price</td>
+                            <td>@game.CreatedAt.ToShortDateString()</td>
+                            <td>
+                                <button type="button" class="btn btn-outline-success btn-sm" @onclick="()=>onEditGameHandler(game.Id)"><span class="oi oi-pencil"></span></button>
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="()=>onGetGameDetailsHandler(game.Id)"><span class="oi oi-eye"></span></button>
+                                <button class="btn btn-outline-danger btn-sm" @onclick="()=>onDeleteGameHandler(game.Id)"><span class="oi oi-trash"></span></button>
+                            </td>
+
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+   
+
+}
+
+
+
+@code {
+    private List<Game>? games;
+    private SweetAlertBase _sweetAlertBase;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _sweetAlertBase = new SweetAlertBase(js);
+
+        HttpResponseMessage responseMessage = await _client.GetAsync("api/Games/GetGames");
+        if (responseMessage.IsSuccessStatusCode)
+        {
+            var responsedata = responseMessage.Content.ReadAsStringAsync().Result;
+            games = JsonConvert.DeserializeObject<List<Game>>(responsedata);
+        }
+    }
+
+
+    private void onAddGame()
+    {
+        navigationManager.NavigateTo("/Game/AddGame");
+
+    }
+
+    private void onEditGameHandler(int id)
+    {
+        navigationManager.NavigateTo($"/Game/EditGame/{id}");
+    }
+
+     private void onGetGameDetailsHandler(int id)
+    {
+        navigationManager.NavigateTo($"/Game/GameDetails/{id}");
+    }
+
+     private void onDeleteGameHandler(int id)
+    {
+        navigationManager.NavigateTo($"/Game/DeleteGame/{id}");
+    }
+
+
+}
+
