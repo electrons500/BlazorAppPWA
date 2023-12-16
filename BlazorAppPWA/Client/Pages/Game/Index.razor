@@ -1,11 +1,15 @@
 ﻿@page "/Game"
 @using BlazorAppPWA.Shared
 @using Newtonsoft.Json
+@using BlazorAppPWA.Client.Data
 @inject HttpClient _client
 @inject NavigationManager navigationManager
 @inject IJSRuntime js;
+@inject localGameStore _localstore;
+@inject PushNotification _pushNotification;
 @using BlazorAppPWA.Client.SweetAlert;
 @using BlazorAppPWA.Client.Enums;
+
 
 
 <PageTitle>Games</PageTitle>
@@ -69,12 +73,39 @@ else
     {
         _sweetAlertBase = new SweetAlertBase(js);
 
-        HttpResponseMessage responseMessage = await _client.GetAsync("api/Games/GetGames");
-        if (responseMessage.IsSuccessStatusCode)
+        try
         {
-            var responsedata = responseMessage.Content.ReadAsStringAsync().Result;
-            games = JsonConvert.DeserializeObject<List<Game>>(responsedata);
+            //check if server is online then start to synchronize
+            if (await _localstore.CheckIfServerIsOnline())
+            {
+                if (await RequestNotificationSubscriptionAsync())
+                {
+                   await _pushNotification.SendNotificationAsync("You are current Online.");
+                }
+                
+                //Check if there is any outstanding data in operations object store in Indexed db
+                if (await _localstore.GetNumberofValuesInObjectStore("operations") is not 0)
+                {
+                    //synchronize data to server if there are data in object store
+                    await _localstore.SynchronizeAsync();
+                }
+
+                games = await LoadDataFromServerAsync();
+            }
+
         }
+        catch (HttpRequestException reqex)
+        {
+            //load from indexed db since server is offline
+            if (await RequestNotificationSubscriptionAsync())
+            {
+                await _pushNotification.SendNotificationAsync("You are current Offline.");
+            }
+
+            games = await LoadDataFromLocalDbAsync();
+
+        }
+
     }
 
 
@@ -89,14 +120,50 @@ else
         navigationManager.NavigateTo($"/Game/EditGame/{id}");
     }
 
-     private void onGetGameDetailsHandler(int id)
+    private void onGetGameDetailsHandler(int id)
     {
         navigationManager.NavigateTo($"/Game/GameDetails/{id}");
     }
 
-     private void onDeleteGameHandler(int id)
+    private void onDeleteGameHandler(int id)
     {
         navigationManager.NavigateTo($"/Game/DeleteGame/{id}");
+    }
+
+    private async Task<List<Game>> LoadDataFromServerAsync()
+    {
+        //Get data from online server
+        var getFromServer = await _client.GetFromJsonAsync<List<Game>>("api/Games/GetGames");
+        if (getFromServer != null)
+        {
+            //clear all data from object stores
+            await _localstore.DeleteAllGameFromlocal("serverdata");
+            await _localstore.DeleteAllGameFromlocal("operations");
+
+            //Repopulate object store
+            await _localstore.InsertServerDataIntoLocal("serverdata", getFromServer);
+            return getFromServer;
+        }
+
+        return new List<Game>();
+
+    }
+
+    private async Task<List<Game>> LoadDataFromLocalDbAsync()
+    {
+        var getdatafromlocal = (await _localstore.GetAllGamesFromlocalDb("serverdata")).ToList();
+        if(getdatafromlocal.Count is 0)
+        {
+            return new List<Game>();
+        }
+        return getdatafromlocal;
+    }
+
+    private async Task<bool> RequestNotificationSubscriptionAsync()
+    {
+        //Ask user permission to recieve push notifications
+        //if user has grant permission or has already granted permission return true
+        return await js.InvokeAsync<bool>("BlazorRequestPushNotification.requestPushNotification");
     }
 
 

@@ -1,0 +1,38 @@
+﻿@page "/Game/Push"
+@using BlazorAppPWA.Shared
+@using BlazorAppPWA.Client.Data
+@inject IJSRuntime js;
+@inject localGameStore _localstore;
+@inject PushNotification _pushNatification
+<PageTitle>Push</PageTitle>
+
+<div class="row">
+    <div class="col-sm-6">
+        <EditForm Model="@data" OnValidSubmit="onSubmithandler">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="mb-3">
+                <label class="form-label">Message</label>
+                <InputText class="form-control" @bind-Value="data.Message" />
+            </div>
+           
+            <div class="mb-3">
+                <button class="btn btn-primary">Submit</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private PushData data = new();
+
+    private async void onSubmithandler()
+    {
+        if(await js.InvokeAsync<bool>("BlazorRequestPushNotification.requestPushNotification"))
+        {
+            await js.InvokeVoidAsync("blazorPushNotifications.sendPushNotification", "You have successfully subscribe to notifications");
+        }
+    }
+
+
+}

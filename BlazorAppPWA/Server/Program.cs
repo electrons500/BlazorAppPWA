@@ -1,5 +1,7 @@
 using BlazorAppPWA.Server.GamesDBContext;
 using BlazorAppPWA.Server.Service;
+using Microsoft.EntityFrameworkCore;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,7 +10,26 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.AddScoped<GameService>();
-builder.Services.AddDbContext<GamesDBContext>();
+builder.Services.AddScoped<SqlQueryService>();
+builder.Services.AddDbContext<GamesDbContext>(o =>
+{
+    o.UseSqlServer(builder.Configuration.GetConnectionString("Conn"));
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+                  
+        });
+});
+
+
+
 
 var app = builder.Build();
 
@@ -31,7 +52,9 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseCors();
 
+app.UseAuthorization();
 app.MapRazorPages();
 app.MapControllers();
 app.MapFallbackToFile("index.html");

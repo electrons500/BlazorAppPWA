@@ -1,13 +1,17 @@
 ﻿using BlazorAppPWA.Shared;
+using Microsoft.Data.SqlClient;
+using System.Data;
 
 namespace BlazorAppPWA.Server.Service
 {
     public class GameService
     {
-        private  GamesDBContext.GamesDBContext _context;
-        public GameService(GamesDBContext.GamesDBContext context)
+        private  GamesDBContext.GamesDbContext _context;
+        private IConfiguration _configuration;
+        public GameService(GamesDBContext.GamesDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         public  List<Game> games = new()
@@ -27,17 +31,16 @@ namespace BlazorAppPWA.Server.Service
             if (gameslist.Count is 0)
             {
                foreach(var game in games)
-                {
+               {
                     Game model = new()
                     {
-                        Id = game.Id,
                         GameName = game.GameName,
                         Price = game.Price,
                         CreatedAt = game.CreatedAt
                     };
                     _context.Games.Add(model);
                     _context.SaveChanges();
-                }
+               }
 
                 return _context.Games.ToList();
             }
@@ -50,7 +53,6 @@ namespace BlazorAppPWA.Server.Service
             var countgames = _context.Games.ToList();
             Game game = new()
             {
-                Id = countgames.Max(x => x.Id) + 1,
                 GameName = model.GameName,
                 Price = model.Price,
                 CreatedAt = model.CreatedAt
@@ -86,6 +88,22 @@ namespace BlazorAppPWA.Server.Service
             _context.Games.Remove(getgame);
             _context.SaveChanges();
             return true;
+        }
+
+        public bool PingDatabase()
+        {
+            using var con = new SqlConnection(_configuration.GetConnectionString("Conn"));
+            con.Open();
+            if (con.State == ConnectionState.Open)
+            {
+                return true;
+            }
+            else
+            {
+                con.Close();
+                return false;
+            }
+
         }
     }
 }

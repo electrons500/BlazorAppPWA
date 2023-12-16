@@ -2,8 +2,10 @@
 @using BlazorAppPWA.Client.Enums
 @using BlazorAppPWA.Client.SweetAlert
 @using BlazorAppPWA.Shared
+@using BlazorAppPWA.Client.Data
 @inject HttpClient _client
 @inject IJSRuntime js;
+@inject localGameStore _localstore;
 @inject NavigationManager navigationManager
 
 <PageTitle>Add Game</PageTitle>
@@ -41,15 +43,39 @@
     protected override Task OnInitializedAsync()
     {
         _sweetAlertBase = new SweetAlertBase(js);
+
         return base.OnInitializedAsync();
     }
     private async void onSubmithandler()
     {
-        var response = await _client.PostAsJsonAsync<Game>("api/Games/AddGame", game);
-        if (response.IsSuccessStatusCode)
+        // HttpResponseMessage response = await _client.GetAsync("api/PingDB/PingDatabase");
+        try
         {
-            await _sweetAlertBase.DefaultAlertAsync("Congratulations", "You have successfully added the game.", SweetAlertEnum.SweetAlertIconType.success.ToString());
+            //send data to server if online
+            var response = await _client.PostAsJsonAsync<Game>("api/Games/AddGame", game);
+            if (response.IsSuccessStatusCode)
+            {
+                await _sweetAlertBase.DefaultAlertAsync("Congratulations", "You have successfully added the game.", SweetAlertEnum.SweetAlertIconType.success.ToString());
+                navigationManager.NavigateTo("/Game");
+            }
+            await _sweetAlertBase.DefaultAlertAsync("Sorry", "Game failed to be added", SweetAlertEnum.SweetAlertIconType.error.ToString());
             navigationManager.NavigateTo("/Game");
+
         }
+        catch (HttpRequestException reqex)
+        {
+            //send data to indexed db if server is offline
+            bool isDataSentToLocal = await _localstore.AddNewGameToLocalAsync("serverdata", game);
+            //insert user operations as queries
+            string sqlquery = $"insert into Game(GameName,Price,CreatedAt)Values('{game.GameName}','{game.Price}','{DateTime.Now.Date}')";
+            await _localstore.AddUserOperationsAsync("operations", sqlquery);
+
+            if (isDataSentToLocal)
+            {
+                await _sweetAlertBase.DefaultAlertAsync("Congratulations", "You have successfully added the game.", SweetAlertEnum.SweetAlertIconType.success.ToString());
+                navigationManager.NavigateTo("/Game");
+            }
+        }
+        
     }
 }

@@ -2,8 +2,10 @@
 @using BlazorAppPWA.Client.Enums
 @using BlazorAppPWA.Client.SweetAlert
 @using BlazorAppPWA.Shared;
+@using BlazorAppPWA.Client.Data
 @inject HttpClient _client;
 @inject IJSRuntime js;
+@inject localGameStore _localstore;
 @inject NavigationManager navigationManager;
 <PageTitle>Delete Game</PageTitle>
 
@@ -11,29 +13,29 @@
 <br />
 <div class="container">
     <dl class="row">
-        <dt class="col-md-2">
+        <dt class="col-md-4">
             Game S/No:
         </dt>
-        <dd class="col-md-10">
+        <dd class="col-md-8">
             @game?.Id
         </dd>
-        <dt class="col-md-2">
+        <dt class="col-md-4">
             Game name:
         </dt>
-        <dd class="col-md-10">
+        <dd class="col-md-8">
             @game?.GameName
         </dd>
 
-        <dt class="col-md-2">
+        <dt class="col-md-4">
             Game Price:
         </dt>
-        <dd class="col-md-10">
+        <dd class="col-md-8">
             @game?.Price
         </dd>
-        <dt class="col-md-2">
+        <dt class="col-md-4">
             Date of creation:
         </dt>
-        <dd class="col-md-10">
+        <dd class="col-md-8">
             @game?.CreatedAt
         </dd>
 
@@ -63,7 +65,18 @@
     protected override async Task OnParametersSetAsync()
     {
         _sweetAlertBase = new SweetAlertBase(js);
-        game = await _client.GetFromJsonAsync<Game>($"api/Games/GetGame/{id}");
+
+        try
+        {
+            //Get data from server if online
+            game = await _client.GetFromJsonAsync<Game>($"api/Games/GetGame/{id}");
+            
+        }
+        catch (HttpRequestException reqex)
+        {
+            //Get data from indexed db if server is offline
+            game = await _localstore.GetGameAsync("serverdata", id);
+        }
     }
 
     private async void onDeleteGamehandler()
@@ -71,11 +84,26 @@
         bool result = await _sweetAlertBase.ConfirmAlertAsync("Are you sure", "Deletion cannot be undone", SweetAlertEnum.SweetAlertIconType.warning.ToString());
         if (result)
         {
-            var responseMessage = await _client.DeleteAsync($"api/Games/DeleteGame/{id}");
-            if (responseMessage.IsSuccessStatusCode)
+            try
             {
+                //delete from server
+                var responseMessage = await _client.DeleteAsync($"api/Games/DeleteGame/{id}");
+
                 await _sweetAlertBase.DefaultAlertAsync("Congratulations", "You have successfully delete the game.", SweetAlertEnum.SweetAlertIconType.success.ToString());
                 navigationManager.NavigateTo("/Game");
+            }
+            catch (HttpRequestException reqex)
+            {
+                //delete from indexed db
+                bool isGameDeleted = await _localstore.DeleteGameAsync("serverdata", id);
+                //store query
+                string sqlquery = $"Delete from Game where Id='{game.Id}'";
+                await _localstore.AddUserOperationsAsync("operations", sqlquery);
+
+                await _sweetAlertBase.DefaultAlertAsync("Congratulations", "You have successfully delete the game.", SweetAlertEnum.SweetAlertIconType.success.ToString());
+                navigationManager.NavigateTo("/Game");
+
+
             }
            
         }

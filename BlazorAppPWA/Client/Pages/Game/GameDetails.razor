@@ -1,6 +1,8 @@
 ﻿@page "/Game/GameDetails/{id:int}"
 @using BlazorAppPWA.Shared
+@using BlazorAppPWA.Client.Data
 @inject HttpClient _client;
+@inject localGameStore _localstore;
 
 
 <PageTitle>Game Details</PageTitle>
@@ -57,6 +59,25 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        game = await _client.GetFromJsonAsync<Game>($"api/Games/GetGame/{id}");
+        //Get Game details from server else from indexed db
+        try
+        {
+            var getFromServer = await _client.GetFromJsonAsync<Game>($"api/Games/GetGame/{id}");
+            if (getFromServer != null)
+            {
+                game = getFromServer;
+            }
+            else
+            {
+                var getFromlocal = await _localstore.GetGameAsync("serverdata", id);
+                game = getFromlocal;
+            }
+
+        }catch(HttpRequestException reqex)
+        {
+            var getFromlocal = await _localstore.GetGameAsync("serverdata", id);
+            game = getFromlocal;
+        }
+
     }
 }

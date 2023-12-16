@@ -2,8 +2,10 @@
 @using BlazorAppPWA.Client.Enums
 @using BlazorAppPWA.Client.SweetAlert
 @using BlazorAppPWA.Shared
+@using BlazorAppPWA.Client.Data
 @inject HttpClient _client
 @inject IJSRuntime js;
+@inject localGameStore _localstore;
 @inject NavigationManager navigationManager
 
 <PageTitle>Edit Game</PageTitle>
@@ -15,7 +17,7 @@
         <EditForm Model="@game" OnValidSubmit="onSubmithandler">
             <DataAnnotationsValidator />
             <ValidationSummary />
-            <InputNumber hidden class="form-control" @bind-Value="game.Id"/>
+            <InputNumber hidden class="form-control" @bind-Value="game.Id" />
             <div class="mb-3">
                 <label class="form-label">Game name</label>
                 <InputText class="form-control" @bind-Value="game.GameName" />
@@ -46,16 +48,52 @@
     protected override async Task OnParametersSetAsync()
     {
         _sweetAlertBase = new SweetAlertBase(js);
-        game = await _client.GetFromJsonAsync<Game>($"api/Games/GetGame/{id}");
+
+        try
+        {
+            //Get data from server if server is offline,then get from indexed db
+            var getGameFromServer = await _client.GetFromJsonAsync<Game>($"api/Games/GetGame/{id}");
+            if (getGameFromServer != null)
+            {
+                game = getGameFromServer;
+            }
+            else
+            {
+                game = await _localstore.GetGameAsync("serverdata", id);
+            }
+
+        }
+        catch (HttpRequestException reqex)
+        {
+            //Get data from indexed db when server is offline
+            game = await _localstore.GetGameAsync("serverdata", id);
+        }
     }
 
     private async void onSubmithandler()
     {
-        var response = await _client.PutAsJsonAsync<Game>($"api/Games/UpdateGame/{id}", game);
-        if (response.IsSuccessStatusCode)
+        try
         {
+            //update if server is online
+            var response = await _client.PutAsJsonAsync<Game>($"api/Games/UpdateGame/{id}", game);
+            //bool islocalDataUpdated = await _localstore.UpdateGameToLocalAsync("serverdata", game);
+
             await _sweetAlertBase.DefaultAlertAsync("Congratulations", "You have successfully updated the game.", SweetAlertEnum.SweetAlertIconType.success.ToString());
             navigationManager.NavigateTo("/Game");
         }
+        catch (HttpRequestException reqex)
+        {
+            //update if server is offline
+            bool islocalDataUpdated = await _localstore.UpdateGameToLocalAsync("serverdata", game);
+
+            //insert user operations as queries
+            string sqlquery = $"update Game set GameName='{game.GameName}',Price='{game.Price}',CreatedAt='{game.CreatedAt}' where Id='{game.Id}'";
+            await _localstore.AddUserOperationsAsync("operations", sqlquery);
+            await _sweetAlertBase.DefaultAlertAsync("Congratulations", "You have successfully updated the game.", SweetAlertEnum.SweetAlertIconType.success.ToString());
+            navigationManager.NavigateTo("/Game");
+        }
+
+        
     }
+
 }
